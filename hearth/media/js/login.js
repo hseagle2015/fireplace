@@ -1,6 +1,6 @@
 define('login',
-    ['cache', 'capabilities', 'jquery', 'log', 'models', 'notification', 'settings', 'underscore', 'urls', 'user', 'requests', 'z', 'utils'],
-    function(cache, capabilities, $, log, models, notification, settings, _, urls, user, requests, z) {
+    ['cache', 'capabilities', 'defer', 'jquery', 'log', 'models', 'notification', 'settings', 'underscore', 'urls', 'user', 'requests', 'z', 'utils'],
+    function(cache, capabilities, defer, $, log, models, notification, settings, _, urls, user, requests, z) {
 
     var console = log('login');
 
@@ -55,8 +55,9 @@ define('login',
     var pending_logins = [];
 
     function startLogin() {
-        var def = $.Deferred();
+        var def = defer();
         pending_logins.push(def);
+
         var opt = {
             termsOfService: '/terms-of-use',
             privacyPolicy: '/privacy-policy',
@@ -99,8 +100,7 @@ define('login',
 
             z.body.addClass('logged-in');
             $('.loading-submit').removeClass('loading-submit');
-            z.page.trigger('reload_chrome');
-            z.page.trigger('logged_in');
+            z.page.trigger('reload_chrome logged_in');
 
             function resolve_pending() {
                 _.invoke(pending_logins, 'resolve');
@@ -146,42 +146,22 @@ define('login',
         });
     }
 
-    function init_persona() {
-        $('.persona').css('cursor', 'pointer');
-        var email = user.get_setting('email') || '';
-        if (email) {
-            console.log('Detected user', email);
-        } else {
-            console.log('No previous user detected');
-        }
-
-        console.log('Calling navigator.id.watch');
-        navigator.id.watch({
-            loggedInUser: email,
-            onlogin: gotVerifiedEmail,
-            onlogout: function() {
-                z.body.removeClass('logged-in');
-                z.page.trigger('reload_chrome');
-                z.win.trigger('logout');
-            }
-        });
-    }
-
-    // Load `include.js` from persona.org, and drop login hotness like it's hot.
-    var s = document.createElement('script');
-    s.onload = init_persona;
-    if (capabilities.firefoxOS) {
-        // Load the Firefox OS include that knows how to handle native Persona.
-        // Once this functionality lands in the normal include we can stop
-        // doing this special case. See bug 821351.
-        s.src = settings.native_persona;
+    var email = user.get_setting('email') || '';
+    if (email) {
+        console.log('Detected user', email);
     } else {
-        s.src = settings.persona;
+        console.log('No previous user detected');
     }
-    document.body.appendChild(s);
-    $('.persona').css('cursor', 'wait');
 
-    return {
-        login: startLogin
-    };
+    console.log('Calling navigator.id.watch');
+    navigator.id.watch({
+        loggedInUser: email,
+        onlogin: gotVerifiedEmail,
+        onlogout: function() {
+            z.body.removeClass('logged-in');
+            z.page.trigger('reload_chrome logout');
+        }
+    });
+
+    return {login: startLogin};
 });
